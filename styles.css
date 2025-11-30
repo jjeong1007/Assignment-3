@@ -27,7 +27,7 @@ body {
     margin-bottom: 6px;
     padding: 6px 16px;
     background: #E8E8E8;
-    border: 1.5px solid #D0D0D0;
+    border: 1px solid #D0D0D0;
     border-radius: 8px;
 }
 
@@ -37,7 +37,7 @@ body {
 
 #decadeButtons button.selected {
     background-color: #4070ff;
-    border: 1.5px solid #4070ff;
+    border: 1px solid #4070ff;
     color: white;
 }
 

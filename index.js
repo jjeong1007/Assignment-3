@@ -9,162 +9,150 @@ const chartArea = svg.append("g")
     
     // defining a clipping path so points dont go beyond the chart
 chartArea.append("defs")
-    .append("clipPath")
-    .attr("id", "chart-area-clip")
-    .append("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", width - 80 - 40)
-    .attr("height", height - 40 - 60);
+  .append("clipPath")
+  .attr("id", "chart-area-clip")
+  .append("rect")
+  .attr("width", width - 80 - 40)
+  .attr("height", height - 40 - 60);
 
-    const xAxisGroup = chartArea.append("g").attr("class", "x-axis")
-      .attr("transform", `translate(0, ${height - 40 - 60})`);
-    const yAxisGroup = chartArea.append("g").attr("class", "y-axis");
+const xAxisGroup = chartArea.append("g").attr("class", "x-axis")
+  .attr("transform", `translate(0, ${height - 40 - 60})`);
+  
+const yAxisGroup = chartArea.append("g").attr("class", "y-axis");
 
-    const pointsLayer = chartArea.append("g")
-      .attr("class", "points-layer")
-      .attr("clip-path", "url(#chart-area-clip)");
+const pointsLayer = chartArea.append("g")
+  .attr("class", "points-layer")
+  .attr("clip-path", "url(#chart-area-clip)");
 
-    const tooltip = d3.select("#tooltip");
+const tooltip = d3.select("#tooltip");
 
-    let currentXScale = null;
-    let currentYScale = null;
-    let selectedX = "bpm";
+let currentXScale = null;
+let currentYScale = null;
+let selectedX = "bpm";
 
-    const zoom = d3.zoom()
-      .scaleExtent([0.5, 5]) // allowed zoom range
-      .translateExtent([[0, 0], [width - 100 - 40, height - 40 - 60]])
-      .extent([[0, 0], [width - 100 - 40, height - 40 - 60]])
-      .on("zoom", (event) => {
-        if (!currentXScale || !currentYScale) return;
-        const newX = event.transform.rescaleX(currentXScale);
-        const newY = event.transform.rescaleY(currentYScale);
+    // allowing the user to zoom in and out of the graph
+const zoom = d3.zoom()
+  .scaleExtent([0.5, 5]) // allowed zoom range
+  .translateExtent([[0, 0], [width - 100 - 40, height - 40 - 60]])
+  .extent([[0, 0], [width - 100 - 40, height - 40 - 60]])
+  .on("zoom", (event) => {
+    if (!currentXScale || !currentYScale) return;
+    const newX = event.transform.rescaleX(currentXScale);
+    const newY = event.transform.rescaleY(currentYScale);
 
-        // update axes with rescaled functions
-        xAxisGroup.call(d3.axisBottom(newX));
-        yAxisGroup.call(d3.axisLeft(newY));
+    xAxisGroup.call(d3.axisBottom(newX));
+    yAxisGroup.call(d3.axisLeft(newY));
 
-        // reposition points (keep radius the same)
-        pointsLayer.selectAll("circle")
-          .attr("cx", d => newX(d[selectedX]))
-          .attr("cy", d => newY(d.popularity));
-      });
+    pointsLayer.selectAll("circle")
+      .attr("cx", d => newX(d[selectedX]))
+      .attr("cy", d => newY(d.popularity));
+  });
 
-    svg.call(zoom);
+svg.call(zoom);
 
+    // loading the data
+d3.csv("spotify.csv").then((data) => {
+  data.forEach((d) => {
+    d.bpm = +d["Beats Per Minute (BPM)"];
+    d.energy = +d["Energy"];
+    d.danceability = +d["Danceability"];
+    d.loudness = +d["Loudness (dB)"];
+    d.liveness = +d["Liveness"];
+    d.valence = +d["Valence"];
+    d.acousticness = +d["Acousticness"];    
+    d.speechiness = +d["Speechiness"];
+    d.popularity = +d["Popularity"]; 
+    d.duration = +d["Length (Duration)"];
+    d.title = d["Title"];
+    d.artist = d["Artist"];
+    d.top_genre = d["Top Genre"];
+    d.year = +d["Year"];
+  });
 
+  function updateChart(xVar, decade) {
+    selectedX = xVar; // store for zoom handler
+    const decadeSongs = data.filter(d => Math.floor(d.year / 10) * 10 === decade);
+    const decadeTitle = `${decade}s Songs`;
+    svg.selectAll("text.chart-title").remove();
+    svg.append("text")
+      .attr("class", "chart-title")
+      .attr("x", width / 2)
+      .attr("y", 20)
+      .attr("text-anchor", "middle")
+      .style("font-size", "16px")
+      .text(decadeTitle); 
 
+    const topPopularity = d3.max(decadeSongs, d => d.popularity);
 
-    d3.csv("spotify.csv").then((data) => {
-      data.forEach((d) => {
-        d.bpm = +d["Beats Per Minute (BPM)"];
-        d.energy = +d["Energy"];
-        d.danceability = +d["Danceability"];
-        d.loudness = +d["Loudness (dB)"];
-        d.liveness = +d["Liveness"];
-        d.valence = +d["Valence"];
-        d.acousticness = +d["Acousticness"];
-        d.speechiness = +d["Speechiness"];
-        d.popularity = +d["Popularity"];
-        d.duration = +d["Length (Duration)"];
-        d.title = d["Title"];
-        d.artist = d["Artist"];
-        d.top_genre = d["Top Genre"];
-        d.year = +d["Year"];
-      });
+          // create fresh scales
+    const xScale = d3.scaleLinear()
+      .domain([d3.min(decadeSongs, d => d[xVar]) - 32, d3.max(decadeSongs, d => d[xVar]) + 32])
+      .range([0, width - 100 - 40]);
 
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(decadeSongs, d => d.popularity) + 24])
+      .range([height - 40 - 60, 0]);
 
+    currentXScale = xScale;
+    currentYScale = yScale;
 
+    xAxisGroup.call(d3.axisBottom(xScale));
+    yAxisGroup.call(d3.axisLeft(yScale));
 
-      function updateChart(xVar, decade) {
-        selectedX = xVar; // store for zoom handler
-        const decadeSongs = data.filter(d => Math.floor(d.year / 10) * 10 === decade);
-        const decadeTitle = `${decade}s Songs`;
-        svg.selectAll("text.chart-title").remove();
-        svg.append("text")
-          .attr("class", "chart-title")
-          .attr("x", width / 2)
-          .attr("y", 20)
-          .attr("text-anchor", "middle")
-          .style("font-size", "16px")
-          .text(decadeTitle); 
+    chartArea.selectAll(".axis-label").remove();
+    chartArea.append("text")
+      .attr("class", "axis-label")
+      .attr("transform", `translate(${(width - 100 - 40) / 2}, ${height - 40 - 60 + 40})`)
+      .style("text-anchor", "middle")
+      .text(xVar.toUpperCase());
 
-        const topPopularity = d3.max(decadeSongs, d => d.popularity);
+    chartArea.append("text")
+      .attr("class", "axis-label")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -50)
+      .attr("x", -(height - 40 - 60) / 2)
+      .style("text-anchor", "middle")
+      .text("POPULARITY");
 
-        // create fresh scales
-        const xScale = d3.scaleLinear()
-          .domain([d3.min(decadeSongs, d => d[xVar]) - 32, d3.max(decadeSongs, d => d[xVar]) + 32])
-          .range([0, width - 100 - 40]);
+    const circles = pointsLayer.selectAll("circle").data(decadeSongs, d => d.title);
 
-        const yScale = d3.scaleLinear()
-          .domain([0, d3.max(decadeSongs, d => d.popularity) + 24])
-          .range([height - 40 - 60, 0]);
+    circles.join(
+      enter => enter.append("circle")
+        .attr("cx", d => xScale(d[xVar]))
+        .attr("cy", d => yScale(d.popularity))
+        .attr("r", 6)
+        .attr("fill", d => d.popularity === topPopularity ? "gold" : "#bbbbbb")
+        .attr("stroke", "#666")
+        .attr("stroke-width", 0.5)
+        .on("mouseover", function(event, d) {
+          this.parentNode.appendChild(this);
+          tooltip.style("opacity", 1)
+            .html(`Song: ${d.title}<br/>Artist: ${d.artist}<br/>Genre: ${d.top_genre}<br/>Length: ${d.duration}<br/>Year: ${d.year}`)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY) + "px");
+          })
+        .on("mouseout", function() {
+          tooltip.style("opacity", 0);
+        }));
+      };
 
-        // save current scales for zoom rescaling
-        currentXScale = xScale;
-        currentYScale = yScale;
+        // initial state
+  let currentDecade = 1950;
+  updateChart("bpm", currentDecade);
 
-        // update axes (base axes correspond to un-transformed view)
-        xAxisGroup.call(d3.axisBottom(xScale));
-        yAxisGroup.call(d3.axisLeft(yScale));
+        // handlers
+  d3.select("#xSelect").on("change", function() {
+    const xVar = this.value;
+    updateChart(xVar, currentDecade);
+    svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
+  });
 
-        // axis labels: remove previous then add
-        chartArea.selectAll(".axis-label").remove();
-        chartArea.append("text")
-          .attr("class", "axis-label")
-          .attr("transform", `translate(${(width - 100 - 40) / 2}, ${height - 40 - 60 + 40})`)
-          .style("text-anchor", "middle")
-          .text(xVar.toUpperCase());
-        chartArea.append("text")
-          .attr("class", "axis-label")
-          .attr("transform", "rotate(-90)")
-          .attr("y", -50)
-          .attr("x", -(height - 40 - 60) / 2)
-          .style("text-anchor", "middle")
-          .text("POPULARITY");
+  d3.selectAll("#decadeButtons button").on("click", function() {
+    currentDecade = +this.getAttribute("data-decade");
+    const xVar = document.getElementById("xSelect").value;
+    updateChart(xVar, currentDecade);
 
-        // bind points to data
-        const circles = pointsLayer.selectAll("circle").data(decadeSongs, d => d.title);
-
-        // ENTER + UPDATE + EXIT
-        circles.join(
-          enter => enter.append("circle")
-            .attr("cx", d => xScale(d[xVar]))
-            .attr("cy", d => yScale(d.popularity))
-            .attr("r", 6) // constant radius that will NOT change on zoom
-            .attr("fill", d => d.popularity === topPopularity ? "gold" : "#bbbbbb")
-            .attr("stroke", "#666")
-            .attr("stroke-width", 0.5)
-            .on("mouseover", function(event, d) {
-              this.parentNode.appendChild(this);
-              tooltip.style("opacity", 1)
-                .html(`Song: ${d.title}<br/>Artist: ${d.artist}<br/>Genre: ${d.top_genre}<br/>Length: ${d.duration}<br/>Year: ${d.year}`)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY) + "px");
-            })
-            .on("mouseout", function() {
-              tooltip.style("opacity", 0);
-            }),
-        );
-      }
-
-      // initial state
-      let currentDecade = 1950;
-      updateChart("bpm", currentDecade);
-
-      // handlers
-      d3.select("#xSelect").on("change", function() {
-        const xVar = this.value;
-        updateChart(xVar, currentDecade);
-        svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
-      });
-
-      d3.selectAll("#decadeButtons button").on("click", function() {
-        currentDecade = +this.getAttribute("data-decade");
-        const xVar = document.getElementById("xSelect").value;
-        updateChart(xVar, currentDecade);
-
-        d3.selectAll("#decadeButtons button").classed("selected", false);
-        d3.select(this).classed("selected", true);
-      });
-    });
+    d3.selectAll("#decadeButtons button").classed("selected", false);
+    d3.select(this).classed("selected", true);
+  })
+  });
